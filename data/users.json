@@ -1,0 +1,12 @@
+{
+  "users": [
+    {
+      "id": "user_1781902100139",
+      "email": "root@localhost",
+      "name": "root",
+      "password": "$2b$12$gHTbDFtcCqoX3USgnaHs.O9yQbq.slIw1YgEq.K.R7QmwFMlaxq3y",
+      "role": "admin",
+      "createdAt": "2026-06-19T20:48:20.139Z"
+    }
+  ]
+}
