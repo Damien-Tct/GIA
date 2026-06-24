@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateWebhookUrl } from "@/lib/validate-url";
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,12 +9,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "URL manquante" }, { status: 400 });
     }
 
+    const validation = validateWebhookUrl(url);
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+
     const res = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; n8n-hub-bot/1.0)",
         Accept: "text/html,application/json,*/*",
       },
-      // Timeout court pour ne pas bloquer
       signal: AbortSignal.timeout(10000),
     });
 
@@ -22,9 +27,7 @@ export async function POST(request: NextRequest) {
     const isHtml =
       contentType.includes("text/html") ||
       text.trim().startsWith("<!DOCTYPE") ||
-      text.trim().startsWith("<html") ||
-      text.trim().startsWith("<script") ||
-      (text.includes("<div") && text.includes("</div>"));
+      text.trim().startsWith("<html");
 
     return NextResponse.json({
       url,
@@ -32,15 +35,14 @@ export async function POST(request: NextRequest) {
       contentType,
       isHtml,
       contentLength: text.length,
-      preview: text.substring(0, 500),
-      headers: Object.fromEntries(res.headers.entries()),
+      reachable: true,
     });
   } catch (err) {
     return NextResponse.json({
       url: null,
       error: err instanceof Error ? err.message : "Erreur inconnue",
       isHtml: false,
-      preview: null,
+      reachable: false,
     });
   }
 }

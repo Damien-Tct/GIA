@@ -18,7 +18,9 @@ Ouvrir [http://localhost:3000](http://localhost:3000).
 
 ## ⚙️ Configuration
 
-Toute la configuration se fait dans **`src/lib/config.ts`** via le tableau `n8nModules`.
+### Modules (formulaires et chats)
+
+Toute la configuration des modules se fait dans **`src/lib/config.ts`** via le tableau `n8nModules`.
 
 ### Types de modules
 
@@ -144,6 +146,51 @@ Les fichiers sont lus en **base64** côté client et envoyés en tant que **tabl
 
 > **Mono-fichier** (`multiple: false`, défaut) : le tableau contient 0 ou 1 élément.
 > **Multi-fichier** (`multiple: true`) : le tableau contient N éléments.
+
+---
+
+## 🔐 Variables d'environnement
+
+Copiez `.env.example` vers `.env.local` et adaptez les valeurs :
+
+```bash
+cp .env.example .env.local
+```
+
+| Variable | Obligatoire | Description |
+|---|---|---|
+| `AUTH_SECRET` | ✅ | Secret JWT — générez-en un avec `openssl rand -base64 32` |
+| `AUTH_LDAP_ENABLED` | ❌ | `true` pour activer l'auth LDAP |
+| `AUTH_LDAP_URL` | ❌ | URL du serveur LDAP (ex: `ldap://localhost:389`) |
+| `AUTH_LDAP_BIND_DN` | ❌ | DN de liaison LDAP |
+| `AUTH_LDAP_BIND_PASSWORD` | ❌ | Mot de passe de liaison LDAP |
+| `AUTH_LDAP_SEARCH_BASE` | ❌ | Base de recherche LDAP |
+| `AUTH_LDAP_SEARCH_FILTER` | ❌ | Filtre LDAP (`{{email}}` est remplacé par l'email saisi) |
+| `ALLOWED_ORIGINS` | ❌ | Domaines autorisés pour les Server Actions (prod, séparés par des virgules) |
+
+> **⚠️ AUTH_SECRET** : si non défini, le serveur affiche un avertissement au démarrage. Ne jamais utiliser la valeur par défaut en production.
+
+---
+
+## 🛡️ Sécurité
+
+Correctifs appliqués sur le projet :
+
+| Risque | Correctif |
+|---|---|
+| 🔴 **SSRF** | `validateUrl()` dans `src/lib/validate-url.ts` bloque les IP privées (127.x, 10.x, 192.168.x, etc.) et les protocoles non-HTTP. Appliqué à `/api/test-url` et `/api/chat-proxy` |
+| 🔴 **Info leak** | `/api/test-url` ne renvoie plus les headers HTTP ni un extrait du contenu de la cible |
+| 🟡 **TLS** | `rejectUnauthorized: false` retiré du fallback HTTPS du chat-proxy |
+| 🟡 **Cookie** | Flag `Secure` conditionnel (`NODE_ENV === "production"`) sur les cookies d'auth |
+| 🟢 **CORS** | `allowedOrigins: ["*"]` remplacé par la variable `ALLOWED_ORIGINS` en production |
+| 🟢 **JWT** | Alerte console si `AUTH_SECRET` est absent ou encore la valeur par défaut |
+
+### Recommandations production
+
+1. Définir `AUTH_SECRET` avec une clé aléatoire (`openssl rand -base64 32`)
+2. Définir `ALLOWED_ORIGINS` avec le domaine de l'application
+3. Ajouter un reverse proxy (nginx/Caddy) pour gérer TLS et rate limiting
+4. Envisager un rate limiting sur `/api/auth/login` pour prévenir le brute-force
 
 ---
 

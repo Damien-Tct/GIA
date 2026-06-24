@@ -4,7 +4,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["ldapjs"],
   experimental: {
     serverActions: {
-      allowedOrigins: ["*"],
+      allowedOrigins: process.env.NODE_ENV === "production"
+        ? (process.env.ALLOWED_ORIGINS?.split(",").map((s) => s.trim()) || [])
+        : ["*"],
     },
   },
 };

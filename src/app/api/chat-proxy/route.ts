@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateWebhookUrl } from "@/lib/validate-url";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,14 @@ export async function POST(request: NextRequest) {
     if (!webhookUrl) {
       return NextResponse.json(
         { success: false, error: "URL du webhook manquante" },
+        { status: 400 }
+      );
+    }
+
+    const validation = validateWebhookUrl(webhookUrl);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.error },
         { status: 400 }
       );
     }
@@ -38,10 +47,10 @@ export async function POST(request: NextRequest) {
       const msg = fetchErr instanceof Error ? fetchErr.message : "Fetch failed";
       console.error("[chat-proxy] Fetch error:", msg);
 
-      // Tester avec HTTP/1.1 explicitement via node:https
+      // Fallback HTTP/1.1 via node:https (sans rejectUnauthorized:false)
       try {
         const url = new URL(webhookUrl);
-        const https = await import("node:https");
+        const mod = url.protocol === "http:" ? await import("node:http") : await import("node:https");
 
         const result = await new Promise<{ success: boolean; data?: unknown; error?: string }>((resolve) => {
           const data = JSON.stringify({
@@ -50,7 +59,7 @@ export async function POST(request: NextRequest) {
             action: action || "sendMessage",
           });
 
-          const req = https.request(
+          const req = mod.request(
             url,
             {
               method: "POST",
@@ -59,7 +68,6 @@ export async function POST(request: NextRequest) {
                 "Content-Length": Buffer.byteLength(data),
                 "User-Agent": "n8n-integration-hub/1.0",
               },
-              rejectUnauthorized: false,
               timeout: 15000,
             },
             (resp) => {
