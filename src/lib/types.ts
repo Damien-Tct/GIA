@@ -15,10 +15,16 @@ export interface N8nModule {
 export interface WebhookField {
   name: string;
   label: string;
-  type: "text" | "textarea" | "email" | "number" | "select" | "file";
+  type: "text" | "textarea" | "email" | "number" | "select" | "file" | "radio" | "list";
   required: boolean;
   placeholder?: string;
   options?: { label: string; value: string }[];
+  /** Type du champ à l'intérieur d'une liste (text par défaut) */
+  listType?: "text" | "email" | "number" | "url";
+  /** Accept filter pour les champs file (ex: ".pdf,.jpg,.png") */
+  accept?: string;
+  /** Permet la sélection de plusieurs fichiers (file uniquement) */
+  multiple?: boolean;
 }
 
 export interface ChatMessage {

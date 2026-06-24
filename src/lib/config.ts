@@ -17,6 +17,13 @@ import { N8nModule } from "./types";
 // Pour les modules "webhook" :
 //   webhookUrl     → L'URL du webhook n8n à appeler
 //   webhookFields  → La liste des champs du formulaire
+//
+// TYPES DE CHAMPS DISPONIBLES :
+// ─────────────────────────────
+// text / email / number / textarea / select / file
+// radio  → Boutons radio (utilisez options[])
+// list   → Champ dynamique (utilisez listType pour l'input interne)
+// file   → Fichier (accept + multiple pour plusieurs fichiers)
 // =============================================================================
 
 export const n8nModules: N8nModule[] = [
@@ -68,6 +75,54 @@ export const n8nModules: N8nModule[] = [
       { name: "email", label: "Email", type: "email", required: true, placeholder: "jean@exemple.com" },
       { name: "subject", label: "Sujet", type: "text", required: true, placeholder: "Sujet de votre message" },
       { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Votre message ici..." },
+    ],
+  },
+  // ─── Démo : tous les types de champs ─────────────────────────────────────
+  {
+    id: "webhook-demo-complet",
+    title: "Formulaire Démo (tous types)",
+    description: "Démonstration de tous les types de champs disponibles.",
+    icon: "🧪",
+    type: "webhook",
+    webhookUrl: "https://votre-n8n.example.com/webhook/demo",
+    webhookFields: [
+      { name: "fullName", label: "Nom complet", type: "text", required: true, placeholder: "Jean Dupont" },
+      { name: "email", label: "Email", type: "email", required: true, placeholder: "jean@exemple.com" },
+      { name: "age", label: "Âge", type: "number", required: true, placeholder: "30" },
+      { name: "category", label: "Catégorie", type: "select", required: true, options: [
+        { label: "Particulier", value: "individual" },
+        { label: "Professionnel", value: "professional" },
+        { label: "Association", value: "association" },
+        { label: "Autre", value: "other" },
+      ]},
+      {
+        name: "priority",
+        label: "Priorité",
+        type: "radio",
+        required: true,
+        options: [
+          { label: "\ud83d\udfe2 Normal", value: "normal" },
+          { label: "\ud83d\udfe1 Important", value: "important" },
+          { label: "\ud83d\udd34 Urgent", value: "urgent" },
+        ],
+      },
+      { name: "comment", label: "Commentaire", type: "textarea", required: false, placeholder: "Votre message détaillé..." },
+      {
+        name: "tags",
+        label: "Tags",
+        type: "list",
+        required: false,
+        placeholder: "ex: javascript",
+        listType: "text",
+      },
+      {
+        name: "attachment",
+        label: "Pièces jointes",
+        type: "file",
+        required: false,
+        multiple: true,
+        accept: ".pdf,.docx,.jpg,.png,.zip",
+      },
     ],
   },
 /*  {
@@ -128,6 +183,46 @@ export const n8nModules: N8nModule[] = [
       ]},
       { name: "title", label: "Titre du ticket", type: "text", required: true, placeholder: "Résumé du problème" },
       { name: "description", label: "Description détaillée", type: "textarea", required: true, placeholder: "Décrivez votre problème en détail..." },
+    ],
+  },
+  {
+    id: "webhook-lead-express",
+    title: "Lead Express",
+    description: "Capture rapide de leads avec préférences et destinataires multiples.",
+    icon: "⚡",
+    type: "webhook",
+    webhookUrl: "https://votre-n8n.example.com/webhook/lead-express",
+    webhookFields: [
+      { name: "contactName", label: "Nom du contact", type: "text", required: true, placeholder: "Votre nom" },
+      { name: "email", label: "Email professionnel", type: "email", required: true, placeholder: "contact@entreprise.com" },
+      {
+        name: "priority",
+        label: "Priorité",
+        type: "radio",
+        required: true,
+        options: [
+          { label: "\ud83d\udd35 Basse", value: "low" },
+          { label: "\ud83d\udfe1 Moyenne", value: "medium" },
+          { label: "\ud83d\udd34 Haute", value: "high" },
+          { label: "\ud83d\udfe3 Critique", value: "critical" },
+        ],
+      },
+      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Votre message..." },
+      {
+        name: "additionalEmails",
+        label: "Destinataires supplémentaires",
+        type: "list",
+        required: false,
+        placeholder: "email@exemple.com",
+        listType: "email",
+      },
+      {
+        name: "attachment",
+        label: "Pièce jointe",
+        type: "file",
+        required: false,
+        accept: ".pdf,.doc,.docx,.jpg,.png",
+      },
     ],
   },*/
 ];

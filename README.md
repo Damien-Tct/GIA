@@ -1,36 +1,177 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏗️ Integration Hub n8n
 
-## Getting Started
+Interface centralisée pour interagir avec vos agents et webhooks **n8n**.
 
-First, run the development server:
+- **💬 Chats** — Widget `@n8n/chat` pour discuter avec des assistants IA
+- **📋 Formulaires** — Générateur de formulaires HTML qui POST sur vos webhooks n8n
+
+---
+
+## 🚀 Démarrage rapide
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ⚙️ Configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Toute la configuration se fait dans **`src/lib/config.ts`** via le tableau `n8nModules`.
 
-## Learn More
+### Types de modules
 
-To learn more about Next.js, take a look at the following resources:
+| Type | Description |
+|---|---|
+| `"chat"` | Widget `@n8n/chat` — POST sur `webhookUrl` |
+| `"webhook"` | Formulaire HTML — POST sur `webhookUrl` |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Structure d'un module
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```ts
+{
+  id: "mon-module",              // Identifiant unique
+  title: "Mon Module",           // Titre affiché
+  description: "...",            // Description
+  icon: "🚀",                    // Emoji
+  type: "webhook",               // "chat" | "webhook"
+  enabled: true,                 // Optionnel, true par défaut
+  webhookUrl: "https://n8n...", // URL du webhook n8n (POST)
+  webhookFields: [ /* ... */ ],  // Champs du formulaire
+}
+```
 
-## Deploy on Vercel
+### Types de champs disponibles
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Type | Rendu | Propriétés spécifiques |
+|---|---|---|
+| `text` | Input texte | `placeholder` |
+| `email` | Input email (validation native) | `placeholder` |
+| `number` | Input nombre | `placeholder` |
+| `textarea` | Zone de texte (4 lignes) | `placeholder` |
+| `select` | Menu déroulant | `options: [{ label, value }]` |
+| **`radio`** | Boutons radio en carte | `options: [{ label, value }]` |
+| **`list`** | Liste dynamique (ajout/suppression) | `listType`, `placeholder` |
+| `file` | Upload fichier → base64 | `accept`, `multiple` |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Exemple complet
+
+```ts
+{
+  id: "webhook-demo",
+  title: "Formulaire Démo",
+  description: "Tous les types de champs.",
+  icon: "🧪",
+  type: "webhook",
+  webhookUrl: "https://n8n.example.com/webhook/demo",
+  webhookFields: [
+    // ── Champs simples ──
+    { name: "fullName", label: "Nom", type: "text", required: true, placeholder: "Jean Dupont" },
+    { name: "email",    label: "Email", type: "email", required: true, placeholder: "jean@exemple.com" },
+    { name: "age",      label: "Âge", type: "number", required: true, placeholder: "30" },
+
+    // ── Select ──
+    { name: "category", label: "Catégorie", type: "select", required: true, options: [
+      { label: "Particulier", value: "individual" },
+      { label: "Professionnel", value: "professional" },
+    ]},
+
+    // ── Radio ──
+    { name: "priority", label: "Priorité", type: "radio", required: true, options: [
+      { label: "🔵 Normal", value: "normal" },
+      { label: "🟡 Important", value: "important" },
+      { label: "🔴 Urgent", value: "urgent" },
+    ]},
+
+    // ── Textarea ──
+    { name: "comment", label: "Commentaire", type: "textarea", placeholder: "Votre message..." },
+
+    // ── Liste dynamique ──
+    { name: "tags", label: "Tags", type: "list", placeholder: "javascript", listType: "text" },
+
+    // ── Fichier (multi) ──
+    { name: "attachments", label: "Pièces jointes", type: "file", multiple: true, accept: ".pdf,.jpg,.png" },
+  ],
+}
+```
+
+---
+
+## 📦 Payload JSON envoyé au webhook
+
+### Champs standards
+
+```json
+{
+  "fullName": "Jean Dupont",
+  "email": "jean@exemple.com",
+  "age": "30",
+  "category": "individual",
+  "priority": "important",
+  "comment": "Bonjour...",
+  "_module": "webhook-demo",
+  "_timestamp": "2026-06-24T12:00:00.000Z"
+}
+```
+
+### Champ `list`
+
+Les listes sont envoyées en tant que **tableau JSON** :
+
+```json
+{
+  "tags": ["javascript", "react", "node"]
+}
+```
+
+### Champ `file`
+
+Les fichiers sont lus en **base64** côté client et envoyés en tant que **tableau d'objets** :
+
+```json
+{
+  "attachments": [
+    {
+      "filename": "document.pdf",
+      "mimeType": "application/pdf",
+      "size": 123456,
+      "data": "JVBERi0xLjQK... (base64 pur)"
+    }
+  ]
+}
+```
+
+> **Mono-fichier** (`multiple: false`, défaut) : le tableau contient 0 ou 1 élément.
+> **Multi-fichier** (`multiple: true`) : le tableau contient N éléments.
+
+---
+
+## 🔧 Scripts
+
+| Commande | Description |
+|---|---|
+| `npm run dev` | Serveur de développement |
+| `npm run build` | Build production |
+| `npm run start` | Démarrage production |
+| `npm run lint` | Vérification ESLint |
+
+---
+
+## 🔐 Authentification
+
+L'application supporte l'authentification via :
+- Compte admin local (email + mot de passe, hashé avec `bcryptjs`)
+- LDAP (via `ldapjs`)
+
+Les routes API d'auth sont sous `/api/auth/*`. La première visite déclenche la page de setup (`/setup`).
+
+---
+
+## 🧱 Stack technique
+
+- **Framework** : [Next.js 16](https://nextjs.org) (App Router, Turbopack)
+- **UI** : [Tailwind CSS 4](https://tailwindcss.com)
+- **Auth** : [next-auth](https://next-auth.js.org) + bcryptjs + jose (JWT)
+- **Chat** : Widget `@n8n/chat`
+- **Langue** : 🇫🇷 Français
