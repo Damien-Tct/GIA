@@ -118,12 +118,19 @@ export default function WebhookForm({ module }: WebhookFormProps) {
   }
   const [fileData, setFileData] = useState<Record<string, FileInfo[]>>({});
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 Mo
 
   /** Ajoute un ou plusieurs fichiers à la liste d'un champ */
   const addFiles = (name: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     Array.from(files).forEach((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        setError(
+          `Le fichier "${file.name}" dépasse la limite de ${MAX_FILE_SIZE / 1024 / 1024} Mo.`
+        );
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;

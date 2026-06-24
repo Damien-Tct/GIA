@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# data (users.json contient des mots de passe hashés)
+/data/
+
 # vercel
 .vercel
 
