@@ -1,24 +1,40 @@
 @import "tailwindcss";
 
+/* ─── Mode sombre basé sur classe ────────────────────────────────────────── */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Variables de couleur ────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.dark {
+  --bg-primary: #030712;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1f2937;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --border-color: #374151;
+}
+
+/* ─── Styles de base ─────────────────────────────────────────────────────── */
+html {
+  background-color: var(--bg-primary);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Scrollbar personnalisée */
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -29,3 +45,38 @@ body {
   background: #d1d5db;
   border-radius: 3px;
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+/* ─── Surcharges dark pour les classes Tailwind les plus utilisées ────────── */
+.dark .bg-white { background-color: #030712 !important; }
+.dark .bg-gray-50 { background-color: #111827 !important; }
+.dark .bg-gray-100 { background-color: #1f2937 !important; }
+.dark .bg-gray-200 { background-color: #374151 !important; }
+.dark .text-gray-900 { color: #f3f4f6 !important; }
+.dark .text-gray-800 { color: #e5e7eb !important; }
+.dark .text-gray-700 { color: #d1d5db !important; }
+.dark .text-gray-600 { color: #9ca3af !important; }
+.dark .text-gray-500 { color: #9ca3af !important; }
+.dark .text-gray-400 { color: #6b7280 !important; }
+.dark .text-gray-300 { color: #4b5563 !important; }
+.dark .border-gray-100 { border-color: #1f2937 !important; }
+.dark .border-gray-200 { border-color: #374151 !important; }
+.dark .border-gray-300 { border-color: #4b5563 !important; }
+.dark .border-gray-600 { border-color: #6b7280 !important; }
+
+/* Surlignages et états */
+.dark .bg-blue-50 { background-color: #1e3a5f !important; }
+.dark .bg-red-50 { background-color: #4c1d1d !important; }
+.dark .bg-green-50 { background-color: #14532d !important; }
+.dark .text-blue-700 { color: #93c5fd !important; }
+.dark .text-red-700 { color: #fca5a5 !important; }
+.dark .text-green-600 { color: #86efac !important; }
+.dark .border-blue-200 { border-color: #1e40af !important; }
+.dark .border-red-200 { border-color: #7f1d1d !important; }
+.dark .border-blue-500 { border-color: #3b82f6 !important; }
+
+/* Ombres */
+.dark .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3) !important; }
+.dark .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4) !important; }

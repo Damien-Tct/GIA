@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { n8nModules } from "@/lib/config";
+import { N8nModule } from "@/lib/types";
+import { theme } from "@/lib/theme";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -12,6 +13,7 @@ export default function Navbar() {
   const [chatsOpen, setChatsOpen] = useState(false);
   const [webhooksOpen, setWebhooksOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
+  const [modules, setModules] = useState<N8nModule[]>([]);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -20,10 +22,14 @@ export default function Navbar() {
         if (d.authenticated) setUser(d.user);
       })
       .catch(() => {});
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((data) => setModules(Array.isArray(data) ? data : []))
+      .catch(() => {});
   }, []);
 
-  const chatModules = n8nModules.filter((m) => m.type === "chat" && m.enabled !== false);
-  const webhookModules = n8nModules.filter((m) => m.type === "webhook" && m.enabled !== false);
+  const chatModules = modules.filter((m) => m.type === "chat" && m.enabled !== false);
+  const webhookModules = modules.filter((m) => m.type === "webhook" && m.enabled !== false);
 
   const isActive = (path: string) =>
     pathname === path || pathname.startsWith(path + "/");
@@ -35,16 +41,17 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 shadow-sm">
+    <nav className="bg-white border-b border-gray-200 shadow-sm"
+      style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--border-color)" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2 text-lg font-bold text-gray-900 shrink-0"
+            className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100 shrink-0"
           >
-            <span className="text-xl">⚡</span>
-            <span className="hidden sm:inline">n8n Integration Hub</span>
+            <span className="text-xl">{theme.logo}</span>
+            <span className="hidden sm:inline">{theme.appTitle}</span>
             <span className="sm:hidden">Hub</span>
           </Link>
 
@@ -138,6 +145,33 @@ export default function Navbar() {
               )}
             </div>
 
+            {/* Historique */}
+            <Link
+              href="/history"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive("/history")
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              📜 Historique
+            </Link>
+
+            {/* Administration */}
+            {user && (
+              <Link
+                href="/admin"
+                onClick={() => setChatsOpen(false)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive("/admin")
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                ⚙️ Admin
+              </Link>
+            )}
+
             {/* Utilisateur + Déconnexion */}
             {user && (
               <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
@@ -221,6 +255,46 @@ export default function Navbar() {
                 </div>
               </Link>
             ))}
+
+            {/* Mobile : Historique */}
+            <Link
+              href="/history"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+                pathname === "/history"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <span className="text-lg shrink-0">📜</span>
+              <div className="min-w-0">
+                <div className="font-medium truncate">Historique</div>
+                <div className="text-xs text-gray-500 truncate">
+                  Soumissions
+                </div>
+              </div>
+            </Link>
+
+            {/* Mobile : Administration */}
+            {user && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+                  pathname === "/admin"
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <span className="text-lg shrink-0">⚙️</span>
+                <div className="min-w-0">
+                  <div className="font-medium truncate">Administration</div>
+                  <div className="text-xs text-gray-500 truncate">
+                    Configuration & export/import
+                  </div>
+                </div>
+              </Link>
+            )}
 
             {user && (
               <div className="pt-3 border-t border-gray-200 flex items-center justify-between px-2">

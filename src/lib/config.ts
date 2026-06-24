@@ -85,11 +85,14 @@ export const n8nModules: N8nModule[] = [
     icon: "🧪",
     type: "webhook",
     webhookUrl: "https://votre-n8n.example.com/webhook/demo",
+    successMessage: "Merci ! Votre démo a bien été envoyée. Nous vous répondrons sous 48h.",
     webhookFields: [
-      { name: "fullName", label: "Nom complet", type: "text", required: true, placeholder: "Jean Dupont" },
-      { name: "email", label: "Email", type: "email", required: true, placeholder: "jean@exemple.com" },
-      { name: "age", label: "Âge", type: "number", required: true, placeholder: "30" },
-      { name: "category", label: "Catégorie", type: "select", required: true, options: [
+      // ── Coordonnées ──
+      { name: "fullName", label: "Nom complet", type: "text", required: true, placeholder: "Jean Dupont", group: "Coordonnées" },
+      { name: "email", label: "Email", type: "email", required: true, placeholder: "jean@exemple.com", group: "Coordonnées" },
+      { name: "age", label: "Âge", type: "number", required: true, placeholder: "30", group: "Coordonnées" },
+      // ── Préférences ──
+      { name: "category", label: "Catégorie", type: "select", required: true, group: "Préférences", options: [
         { label: "Particulier", value: "individual" },
         { label: "Professionnel", value: "professional" },
         { label: "Association", value: "association" },
@@ -100,13 +103,15 @@ export const n8nModules: N8nModule[] = [
         label: "Priorité",
         type: "radio",
         required: true,
+        group: "Préférences",
         options: [
           { label: "\ud83d\udfe2 Normal", value: "normal" },
           { label: "\ud83d\udfe1 Important", value: "important" },
           { label: "\ud83d\udd34 Urgent", value: "urgent" },
         ],
       },
-      { name: "comment", label: "Commentaire", type: "textarea", required: false, placeholder: "Votre message détaillé..." },
+      // ── Détails ──
+      { name: "comment", label: "Commentaire", type: "textarea", required: false, placeholder: "Votre message détaillé...", group: "Détails" },
       {
         name: "tags",
         label: "Tags",
@@ -114,7 +119,11 @@ export const n8nModules: N8nModule[] = [
         required: false,
         placeholder: "ex: javascript",
         listType: "text",
+        group: "Détails",
       },
+      // Champ conditionnel : visible seulement si catégorie = "other"
+      { name: "customCategory", label: "Précisez votre catégorie", type: "text", required: true, placeholder: "Votre catégorie", showIf: { field: "category", value: "other" } },
+      // ── Fichiers ──
       {
         name: "attachment",
         label: "Pièces jointes",

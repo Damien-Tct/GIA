@@ -1,16 +1,18 @@
 import Link from "next/link";
-import { n8nModules } from "@/lib/config";
+import { loadModules } from "@/lib/config-loader";
+import { theme } from "@/lib/theme";
 
 export default function Home() {
-  const chatModules = n8nModules.filter((m) => m.type === "chat" && m.enabled !== false);
-  const webhookModules = n8nModules.filter((m) => m.type === "webhook" && m.enabled !== false);
+  const modules = loadModules();
+  const chatModules = modules.filter((m) => m.type === "chat" && m.enabled !== false);
+  const webhookModules = modules.filter((m) => m.type === "webhook" && m.enabled !== false);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
       {/* Hero */}
       <div className="text-center mb-16">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl mb-4">
-          <span className="text-blue-600">Hub d'intégration n8n</span>
+          <span className="text-blue-600">{theme.appTitle}</span>
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
           Interface centralisée pour interagir avec vos agents n8n.

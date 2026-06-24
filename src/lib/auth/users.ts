@@ -3,7 +3,7 @@ import path from "path";
 
 const DATA_FILE = path.join(process.cwd(), "data", "users.json");
 
-interface StoredUser {
+export interface StoredUser {
   id: string;
   email: string;
   name: string;
@@ -59,4 +59,17 @@ export function updateUser(email: string, updates: Partial<StoredUser>): StoredU
   data.users[idx] = { ...data.users[idx], ...updates };
   writeUsers(data);
   return data.users[idx];
+}
+
+export function listUsers(): Omit<StoredUser, "password">[] {
+  return readUsers().users.map(({ password, ...rest }) => rest);
+}
+
+export function deleteUser(email: string): boolean {
+  const data = readUsers();
+  const len = data.users.length;
+  data.users = data.users.filter((u) => u.email !== email);
+  if (data.users.length === len) return false;
+  writeUsers(data);
+  return true;
 }

@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { getModuleById, getModulesByType } from "@/lib/config";
+import { loadModules } from "@/lib/config-loader";
 import WebhookForm from "@/components/WebhookForm";
 
 export async function generateStaticParams() {
-  return getModulesByType("webhook").map((mod) => ({
+  return loadModules().filter((m) => m.type === "webhook").map((mod) => ({
     moduleId: mod.id,
   }));
 }
@@ -14,7 +14,7 @@ export default async function WebhookPage({
   params: Promise<{ moduleId: string }>;
 }) {
   const { moduleId } = await params;
-  const mod = getModuleById(moduleId);
+  const mod = loadModules().find((m) => m.id === moduleId);
 
   if (!mod || mod.type !== "webhook") {
     notFound();

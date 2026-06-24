@@ -10,6 +10,8 @@ export interface N8nModule {
   webhookFields?: WebhookField[];
   /** Activer/désactiver l'affichage du module (true par défaut) */
   enabled?: boolean;
+  /** Message personnalisé après soumission réussie */
+  successMessage?: string;
 }
 
 export interface WebhookField {
@@ -25,6 +27,10 @@ export interface WebhookField {
   accept?: string;
   /** Permet la sélection de plusieurs fichiers (file uniquement) */
   multiple?: boolean;
+  /** Nom du groupe pour le fieldset (regroupe visuellement les champs) */
+  group?: string;
+  /** Afficher ce champ seulement si un autre champ a une valeur spécifique */
+  showIf?: { field: string; value: string };
 }
 
 export interface ChatMessage {
@@ -39,4 +45,22 @@ export interface WebhookResponse {
   data?: unknown;
   message?: string;
   error?: string;
+}
+
+export interface SubmissionLog {
+  id: string;
+  moduleId: string;
+  moduleTitle: string;
+  timestamp: string;
+  success: boolean;
+  payload: Record<string, unknown>;
+  response?: unknown;
+  error?: string;
+}
+
+export interface ThemeConfig {
+  primaryColor: string;
+  logo: string;
+  appTitle: string;
+  footer: string;
 }
