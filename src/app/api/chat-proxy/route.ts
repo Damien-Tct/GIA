@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { webhookUrl, chatInput, sessionId, action } = body;
+    const { webhookUrl, chatInput, sessionId, action, files } = body;
 
     if (!webhookUrl) {
       return NextResponse.json(
@@ -38,6 +38,16 @@ export async function POST(request: NextRequest) {
           chatInput,
           sessionId: sessionId || `session-${Date.now()}`,
           action: action || "sendMessage",
+          ...(files && files.length > 0
+            ? {
+                files: files.map((f: { filename: string; mimeType: string; size: number; data: string }) => ({
+                  name: f.filename,
+                  mimeType: f.mimeType,
+                  size: f.size,
+                  data: f.data,
+                })),
+              }
+            : {}),
         }),
         signal: controller.signal,
       });
@@ -57,6 +67,16 @@ export async function POST(request: NextRequest) {
             chatInput,
             sessionId: `session-${Date.now()}`,
             action: action || "sendMessage",
+            ...(files && files.length > 0
+              ? {
+                  files: files.map((f: { filename: string; mimeType: string; size: number; data: string }) => ({
+                    name: f.filename,
+                    mimeType: f.mimeType,
+                    size: f.size,
+                    data: f.data,
+                  })),
+                }
+              : {}),
           });
 
           const req = mod.request(

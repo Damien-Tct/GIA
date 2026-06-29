@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { N8nModule, ChatMessage } from "@/lib/types";
+import { N8nModule, ChatMessage, ChatAttachment } from "@/lib/types";
 
 interface N8nChatProps {
   module: N8nModule;
@@ -24,6 +24,11 @@ Comment puis-je vous aider aujourd'hui ?`,
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showScrollbar, setShowScrollbar] = useState(false);
+
+  // ─── Fichiers attachés ──────────────────────────────────────────────────
+  const [attachedFiles, setAttachedFiles] = useState<ChatAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 Mo
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -50,6 +55,39 @@ Comment puis-je vous aider aujourd'hui ?`,
     }
   }, [input]);
 
+  // ─── Fichiers : helpers ─────────────────────────────────────────────────
+  const addFiles = (fl: FileList | null) => {
+    if (!fl || fl.length === 0) return;
+    Array.from(fl).forEach((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        setError(`Le fichier "${file.name}" dépasse la limite de 10 Mo.`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.includes("base64,")
+          ? result.split("base64,")[1]
+          : result;
+        setAttachedFiles((prev) => [
+          ...prev,
+          {
+            filename: file.name,
+            mimeType: file.type || "application/octet-stream",
+            size: file.size,
+            data: base64,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // ─── Envoi vers n8n ─────────────────────────────────────────────────────
   const sendToWebhook = async (text: string): Promise<string> => {
     try {
       const proxyRes = await fetch("/api/chat-proxy", {
@@ -60,6 +98,14 @@ Comment puis-je vous aider aujourd'hui ?`,
           chatInput: text,
           sessionId: sessionId.current,
           action: "sendMessage",
+          files: attachedFiles.length > 0
+            ? attachedFiles.map((f) => ({
+                filename: f.filename,
+                mimeType: f.mimeType,
+                size: f.size,
+                data: f.data,
+              }))
+            : undefined,
         }),
       });
       const json = await proxyRes.json();
@@ -75,6 +121,14 @@ Comment puis-je vous aider aujourd'hui ?`,
         chatInput: text,
         sessionId: sessionId.current,
         action: "sendMessage",
+        files: attachedFiles.length > 0
+          ? attachedFiles.map((f) => ({
+              filename: f.filename,
+              mimeType: f.mimeType,
+              size: f.size,
+              data: f.data,
+            }))
+          : undefined,
       }),
     });
     if (!directRes.ok) {
@@ -104,17 +158,20 @@ Comment puis-je vous aider aujourd'hui ?`,
 
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || sending || !module.webhookUrl) return;
+    const hasFiles = attachedFiles.length > 0;
+    if ((!text && !hasFiles) || sending || !module.webhookUrl) return;
 
     setError(null);
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: text,
+      content: text || "📎 Fichier(s) joint(s)",
       timestamp: new Date(),
+      files: hasFiles ? [...attachedFiles] : undefined,
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setAttachedFiles([]);
     setSending(true);
 
     if (textareaRef.current) {
@@ -208,6 +265,36 @@ Comment puis-je vous aider aujourd'hui ?`,
               <div className="text-sm leading-relaxed whitespace-pre-wrap">
                 {msg.content}
               </div>
+              {msg.files && msg.files.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {msg.files.map((f, i) => {
+                    const isImage = f.mimeType.startsWith("image/");
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center gap-2 rounded-lg p-2 text-xs ${
+                          msg.role === "user"
+                            ? "bg-blue-500/30"
+                            : "bg-gray-100"
+                        }`}
+                      >
+                        <span className="text-base shrink-0">
+                          {isImage ? "🖼️" : "📎"}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">
+                            {f.filename}
+                          </p>
+                          <p className="opacity-60">
+                            {(f.size / 1024).toFixed(1)} Ko
+                            {isImage && " · Image"}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <p
                 className={`text-[10px] mt-1.5 ${
                   msg.role === "user"
@@ -243,6 +330,40 @@ Comment puis-je vous aider aujourd'hui ?`,
       {/* ── Barre de saisie ── */}
       <div className="border-t border-gray-200 bg-white">
         <div className="px-4 pt-4 pb-5 max-w-4xl mx-auto">
+          {/* Pièces jointes en attente */}
+          {attachedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {attachedFiles.map((f, i) => {
+                const isImage = f.mimeType.startsWith("image/");
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-xs group"
+                  >
+                    <span className="text-base shrink-0">
+                      {isImage ? "🖼️" : "📎"}
+                    </span>
+                    <div className="min-w-0 max-w-[180px]">
+                      <p className="truncate font-medium text-gray-800">
+                        {f.filename}
+                      </p>
+                      <p className="text-gray-400">
+                        {(f.size / 1024).toFixed(1)} Ko
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Retirer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <div className="flex-1 relative">
               <textarea
@@ -258,9 +379,36 @@ Comment puis-je vous aider aujourd'hui ?`,
                 }`}
               />
             </div>
+            {/* Bouton pièce jointe */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending || !module.webhookUrl}
+              className="w-11 h-11 rounded-xl border border-gray-300 bg-gray-50 hover:bg-gray-100 disabled:bg-gray-100 disabled:border-gray-200 text-gray-500 disabled:text-gray-300 transition-all flex items-center justify-center shrink-0"
+              title="Ajouter une pièce jointe"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                />
+              </svg>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={(e) => {
+                addFiles(e.target.files);
+                e.target.value = "";
+              }}
+              className="hidden"
+            />
             <button
               onClick={sendMessage}
-              disabled={sending || !input.trim() || !module.webhookUrl}
+              disabled={sending || (!input.trim() && attachedFiles.length === 0) || !module.webhookUrl}
               className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-300 text-white disabled:text-gray-400 transition-all flex items-center justify-center shrink-0 shadow-sm disabled:shadow-none"
               title="Envoyer (Enter)"
             >

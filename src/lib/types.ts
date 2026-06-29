@@ -33,11 +33,20 @@ export interface WebhookField {
   showIf?: { field: string; value: string };
 }
 
+export interface ChatAttachment {
+  filename: string;
+  mimeType: string;
+  size: number;
+  data: string; // base64
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  /** Pièces jointes (messages utilisateur uniquement) */
+  files?: ChatAttachment[];
 }
 
 export interface WebhookResponse {
