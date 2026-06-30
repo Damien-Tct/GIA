@@ -1,4 +1,4 @@
-"use client";
+2"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { N8nModule, ChatMessage, ChatAttachment } from "@/lib/types";
@@ -71,82 +71,23 @@ Comment puis-je vous aider aujourd'hui ?`,
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  /**
-   * Convertit un File en base64 data URI (ex: "data:image/png;base64,...")
-   */
-  const fileToBase64DataUri = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  /**
-   * Construit le payload JSON envoyé à n8n.
-   * Pour que l'AI Agent n8n voie les fichiers, on utilise le format OpenAI :
-   * un tableau `messages` avec des blocs content [text, image_url, ...]
-   */
-  const buildPayload = async (text: string) => {
-    if (attachedFiles.length === 0) {
-      // Pas de fichier → format simple
-      return {
-        chatInput: text,
-        sessionId: sessionId.current,
-        action: "sendMessage",
-      };
-    }
-
-    // Construire le tableau content au format OpenAI
-    const content: unknown[] = [];
-    if (text) {
-      content.push({ type: "text", text });
-    }
-
-    for (const file of attachedFiles) {
-      const dataUri = await fileToBase64DataUri(file);
-
-      // Images → format image_url (supporté par l'AI Agent)
-      if (file.type.startsWith("image/")) {
-        content.push({
-          type: "image_url",
-          image_url: { url: dataUri, detail: "auto" },
-        });
-      } else {
-        // Autres fichiers → on les passe en texte (base64) avec un marqueur
-        // L'AI Agent ne les comprendra pas directement, mais ils seront
-        // disponibles dans les données brutes du Chat Trigger pour traitement
-        content.push({
-          type: "text",
-          text: `[Fichier joint : ${file.name} (${file.type}, ${(file.size / 1024).toFixed(1)} Ko) encodé en base64 ci-dessous]\n${dataUri}`,
-        });
-      }
-    }
-
-    return {
-      chatInput: text || `📎 ${attachedFiles.length} fichier(s) joint(s)`,
-      sessionId: sessionId.current,
-      action: "sendMessage",
-      // Ce tableau "messages" est reconnu par le Chat Trigger n8n et transmis à l'AI Agent
-      messages: [
-        {
-          role: "user",
-          content,
-        },
-      ],
-    };
-  };
-
-  // ─── Envoi vers n8n ─────────────────────────────────────────────────────
+  // ─── Envoi vers n8n (multipart avec vrais fichiers) ──────────────────────
   const sendToWebhook = async (text: string): Promise<string> => {
-    const payload = await buildPayload(text);
+    // Construire un FormData : fichiers en vrais fichiers binaires + champs texte
+    const formData = new FormData();
+    formData.append("webhookUrl", module.webhookUrl!);
+    formData.append("chatInput", text);
+    formData.append("sessionId", sessionId.current);
+    formData.append("action", "sendMessage");
+    attachedFiles.forEach((file, i) => {
+      formData.append(`file_${i}`, file, file.name);
+    });
 
     try {
       const proxyRes = await fetch("/api/chat-proxy", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        // Le Content-Type (multipart avec boundary) est géré automatiquement
+        body: formData,
       });
       const json = await proxyRes.json();
       if (json.success) return extractReply(json.data);
@@ -156,8 +97,7 @@ Comment puis-je vous aider aujourd'hui ?`,
 
     const directRes = await fetch(module.webhookUrl!, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: formData,
     });
     if (!directRes.ok) {
       throw new Error(`HTTP ${directRes.status}`);
