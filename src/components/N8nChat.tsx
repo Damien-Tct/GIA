@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { N8nModule, ChatMessage, ChatAttachment } from "@/lib/types";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 interface N8nChatProps {
   module: N8nModule;
@@ -240,8 +241,11 @@ Comment puis-je vous aider aujourd'hui ?`,
                   : "bg-white text-gray-900 rounded-bl-md shadow-sm border border-gray-100"
               }`}
             >
-              <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                {msg.content}
+              <div>
+                <MarkdownRenderer
+                  content={msg.content}
+                  variant={msg.role === "user" ? "user" : "assistant"}
+                />
               </div>
               {msg.files && msg.files.length > 0 && (
                 <div className="mt-2 space-y-1.5">
