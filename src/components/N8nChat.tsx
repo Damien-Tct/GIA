@@ -1,4 +1,4 @@
-2"use client";
+"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { N8nModule, ChatMessage, ChatAttachment } from "@/lib/types";
