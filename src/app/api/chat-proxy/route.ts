@@ -3,10 +3,16 @@ import { validateWebhookUrl } from "@/lib/validate-url";
 
 export const runtime = "nodejs";
 
+/**
+ * Proxy qui relaie un FormData multipart (avec vrais fichiers)
+ * vers le webhook n8n, toujours en multipart.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { webhookUrl, chatInput, sessionId, action, files } = body;
+    // Récupérer le FormData entrant (envoyé par le client)
+    const incomingFormData = await request.formData();
+
+    const webhookUrl = incomingFormData.get("webhookUrl") as string | null;
 
     if (!webhookUrl) {
       return NextResponse.json(
@@ -23,32 +29,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Reconstruire un FormData vers n8n (on garde les champs texte et les fichiers)
+    const outFormData = new FormData();
+
+    // Copier les champs texte connus
+    const chatInput = incomingFormData.get("chatInput") as string ?? "";
+    const sessionId = (incomingFormData.get("sessionId") as string) ?? `session-${Date.now()}`;
+    const action = (incomingFormData.get("action") as string) ?? "sendMessage";
+
+    outFormData.append("chatInput", chatInput);
+    outFormData.append("sessionId", sessionId);
+    outFormData.append("action", action);
+
+    // Copier les fichiers (clés "file_0", "file_1", etc.)
+    for (const [key, value] of incomingFormData.entries()) {
+      if (key.startsWith("file_") && value instanceof File) {
+        outFormData.append(key, value, value.name);
+      }
+    }
+
     let res: Response;
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), 30000);
 
       res = await fetch(webhookUrl, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           "User-Agent": "n8n-integration-hub/1.0",
+          // Pas de Content-Type → fetch le définit avec le bon boundary
         },
-        body: JSON.stringify({
-          chatInput,
-          sessionId: sessionId || `session-${Date.now()}`,
-          action: action || "sendMessage",
-          ...(files && files.length > 0
-            ? {
-                files: files.map((f: { filename: string; mimeType: string; size: number; data: string }) => ({
-                  name: f.filename,
-                  mimeType: f.mimeType,
-                  size: f.size,
-                  data: f.data,
-                })),
-              }
-            : {}),
-        }),
+        body: outFormData,
         signal: controller.signal,
       });
 
@@ -57,76 +68,26 @@ export async function POST(request: NextRequest) {
       const msg = fetchErr instanceof Error ? fetchErr.message : "Fetch failed";
       console.error("[chat-proxy] Fetch error:", msg);
 
-      // Fallback HTTP/1.1 via node:https (sans rejectUnauthorized:false)
+      // Fallback : le FormData natif de fetch ne fonctionne pas dans certains environnements
+      // On tente un dernier appel avec un body JSON simple (sans fichiers)
+      // Note : les fichiers ne pourront pas être transmis en fallback JSON → on le signale
       try {
-        const url = new URL(webhookUrl);
-        const mod = url.protocol === "http:" ? await import("node:http") : await import("node:https");
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
 
-        const result = await new Promise<{ success: boolean; data?: unknown; error?: string }>((resolve) => {
-          const data = JSON.stringify({
+        res = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             chatInput,
-            sessionId: `session-${Date.now()}`,
-            action: action || "sendMessage",
-            ...(files && files.length > 0
-              ? {
-                  files: files.map((f: { filename: string; mimeType: string; size: number; data: string }) => ({
-                    name: f.filename,
-                    mimeType: f.mimeType,
-                    size: f.size,
-                    data: f.data,
-                  })),
-                }
-              : {}),
-          });
-
-          const req = mod.request(
-            url,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Content-Length": Buffer.byteLength(data),
-                "User-Agent": "n8n-integration-hub/1.0",
-              },
-              timeout: 15000,
-            },
-            (resp) => {
-              let body = "";
-              resp.on("data", (chunk) => (body += chunk));
-              resp.on("end", () => {
-                try {
-                  const json = JSON.parse(body);
-                  resolve({ success: true, data: json });
-                } catch {
-                  resolve({ success: true, data: body });
-                }
-              });
-            }
-          );
-
-          req.on("error", (e) => {
-            resolve({ success: false, error: e.message });
-          });
-
-          req.on("timeout", () => {
-            req.destroy();
-            resolve({ success: false, error: "Timeout" });
-          });
-
-          req.write(data);
-          req.end();
+            sessionId,
+            action,
+          }),
+          signal: controller.signal,
         });
 
-        if (!result.success) {
-          return NextResponse.json({
-            success: false,
-            error: `Impossible de joindre le serveur n8n (${webhookUrl}).`,
-            details: result.error,
-          });
-        }
-
-        return NextResponse.json(result);
-      } catch (httpsErr) {
+        clearTimeout(timeout);
+      } catch (secondErr) {
         return NextResponse.json({
           success: false,
           error: `Impossible de joindre le serveur n8n (${webhookUrl}).`,

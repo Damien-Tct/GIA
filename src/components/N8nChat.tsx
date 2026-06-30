@@ -25,8 +25,8 @@ Comment puis-je vous aider aujourd'hui ?`,
   const [error, setError] = useState<string | null>(null);
   const [showScrollbar, setShowScrollbar] = useState(false);
 
-  // ─── Fichiers attachés ──────────────────────────────────────────────────
-  const [attachedFiles, setAttachedFiles] = useState<ChatAttachment[]>([]);
+  // ─── Fichiers attachés (File natif, plus de base64) ─────────────────────
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 Mo
 
@@ -63,23 +63,7 @@ Comment puis-je vous aider aujourd'hui ?`,
         setError(`Le fichier "${file.name}" dépasse la limite de 10 Mo.`);
         return;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        const base64 = result.includes("base64,")
-          ? result.split("base64,")[1]
-          : result;
-        setAttachedFiles((prev) => [
-          ...prev,
-          {
-            filename: file.name,
-            mimeType: file.type || "application/octet-stream",
-            size: file.size,
-            data: base64,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
+      setAttachedFiles((prev) => [...prev, file]);
     });
   };
 
@@ -87,26 +71,23 @@ Comment puis-je vous aider aujourd'hui ?`,
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // ─── Envoi vers n8n ─────────────────────────────────────────────────────
+  // ─── Envoi vers n8n (FormData / multipart) ──────────────────────────────
   const sendToWebhook = async (text: string): Promise<string> => {
+    // Construire un FormData : les fichiers en vrais fichiers, les metas en champs
+    const formData = new FormData();
+    formData.append("webhookUrl", module.webhookUrl!);
+    formData.append("chatInput", text);
+    formData.append("sessionId", sessionId.current);
+    formData.append("action", "sendMessage");
+    attachedFiles.forEach((file, i) => {
+      formData.append(`file_${i}`, file, file.name);
+    });
+
     try {
       const proxyRes = await fetch("/api/chat-proxy", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          webhookUrl: module.webhookUrl,
-          chatInput: text,
-          sessionId: sessionId.current,
-          action: "sendMessage",
-          files: attachedFiles.length > 0
-            ? attachedFiles.map((f) => ({
-                filename: f.filename,
-                mimeType: f.mimeType,
-                size: f.size,
-                data: f.data,
-              }))
-            : undefined,
-        }),
+        // Ne PAS mettre Content-Type → le navigateur gère le boundary automatiquement
+        body: formData,
       });
       const json = await proxyRes.json();
       if (json.success) return extractReply(json.data);
@@ -116,20 +97,7 @@ Comment puis-je vous aider aujourd'hui ?`,
 
     const directRes = await fetch(module.webhookUrl!, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chatInput: text,
-        sessionId: sessionId.current,
-        action: "sendMessage",
-        files: attachedFiles.length > 0
-          ? attachedFiles.map((f) => ({
-              filename: f.filename,
-              mimeType: f.mimeType,
-              size: f.size,
-              data: f.data,
-            }))
-          : undefined,
-      }),
+      body: formData,
     });
     if (!directRes.ok) {
       throw new Error(`HTTP ${directRes.status}`);
@@ -162,12 +130,22 @@ Comment puis-je vous aider aujourd'hui ?`,
     if ((!text && !hasFiles) || sending || !module.webhookUrl) return;
 
     setError(null);
+    // Convertir les File natifs en ChatAttachment pour l'affichage seulement
+    const fileAttachments = hasFiles
+      ? attachedFiles.map((f) => ({
+          filename: f.name,
+          mimeType: f.type || "application/octet-stream",
+          size: f.size,
+          data: "", // Plus de base64 stocké
+        }))
+      : undefined;
+
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
       content: text || "📎 Fichier(s) joint(s)",
       timestamp: new Date(),
-      files: hasFiles ? [...attachedFiles] : undefined,
+      files: fileAttachments,
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -334,7 +312,7 @@ Comment puis-je vous aider aujourd'hui ?`,
           {attachedFiles.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {attachedFiles.map((f, i) => {
-                const isImage = f.mimeType.startsWith("image/");
+                const isImage = f.type.startsWith("image/");
                 return (
                   <div
                     key={i}
@@ -345,7 +323,7 @@ Comment puis-je vous aider aujourd'hui ?`,
                     </span>
                     <div className="min-w-0 max-w-[180px]">
                       <p className="truncate font-medium text-gray-800">
-                        {f.filename}
+                        {f.name}
                       </p>
                       <p className="text-gray-400">
                         {(f.size / 1024).toFixed(1)} Ko
